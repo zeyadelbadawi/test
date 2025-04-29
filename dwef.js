@@ -123,7 +123,7 @@ function checkMotionSinceDoorEvent() {
       debugLog("⏳ " + minutesRemaining + " minutes remaining before turning off relay.");
     }
   }
-
+  
 
 // تحديث وقت آخر نشاط لحساس معين عند اكتشاف حركة فعلية
 function updateSensorActivity(macAddress) {
@@ -171,24 +171,33 @@ function handleDoorEvent(isOpen) {
         debugLog("🚪 Door closed");
         
         if (!isRelayOn) {
-          // If the relay is OFF, switch it ON
+          // If the relay is OFF, switch it ON and then start the countdown and motion detection
           turnOnRelay();
+          startCountdownAndMonitorMotion();  // Start countdown and motion detection after turning ON the relay
         } else {
-          // If the relay is ON, start the countdown and motion detection process
+          // If the relay is ON, just start the countdown and monitor motion
           startCountdownAndMonitorMotion();
         }
       }
     }
   }
+  
 
-
-  function startCountdownAndMonitorMotion() {
+  
+function startCountdownAndMonitorMotion() {
+    if (!isRelayOn) {
+      // If the relay is OFF, we should not start the countdown
+      debugLog("❌ Relay is OFF, not starting countdown and motion detection.");
+      return;  // Exit if the relay is OFF
+    }
+  
     countdownStarted = true;
     motionDetectedSinceLastDoorEvent = false;
     
     // Set the countdown timer
     let inactivityThreshold = minutesToMs(CONFIG.inactivityTimeout);
     
+    // Start periodic checks every 30 seconds and 60 seconds
     let timer30s = Timer.set(30000, false, function() {
       debugLog("⏰ Check after 30 seconds of door closure");
       checkMotionSinceDoorEvent();
@@ -205,6 +214,7 @@ function handleDoorEvent(isOpen) {
     debugLog("⏱ Countdown started. Awaiting motion detection.");
   }
 
+  
   function resetTimers() {
     countdownStarted = false;
     motionDetectedSinceLastDoorEvent = false;
@@ -215,7 +225,7 @@ function handleDoorEvent(isOpen) {
       Timer.clear(timerID);
       debugLog("✅ Timers cleared.");
     }
-}
+  }
 
   
 // Functions for decoding and unpacking the service data from Shelly BLU devices
