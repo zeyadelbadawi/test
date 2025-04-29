@@ -181,46 +181,46 @@ let CONFIG = {
         doorOpened = false;
         debugLog("🚪 تم إغلاق الباب");
   
-        // Reset flags if the countdown is restarted
-        if (!countdownStarted) {
-          countdownStarted = true;
-          motionDetectedSinceLastDoorEvent = false;
-          debugLog("⏱ بدء العد التنازلي");
-          
-          // Clear previous timers and set new ones
-          while (activeTimers.length > 0) {
-            let timerID = activeTimers.pop();
-            Timer.clear(timerID);
-          }
+        // Reset all logic like first time
+        debugLog("🔄 إعادة تهيئة النظام بالكامل كما في المرة الأولى");
   
-          let timer30s = Timer.set(30000, false, function() {
-            checkMotionSinceDoorEvent();
-          });
-          activeTimers.push(timer30s);
-        } else {
-          // Reset the countdown if the door is opened again before timeout
-          debugLog("🚪 تم فتح الباب مرة أخرى قبل انتهاء العد التنازلي");
-          countdownStarted = false;
-          motionDetectedSinceLastDoorEvent = false;
-          debugLog("⏱ تم إيقاف العد التنازلي بسبب فتح الباب مرة أخرى");
-          
-          // Cancel the existing timers
-          while (activeTimers.length > 0) {
-            let timerID = activeTimers.pop();
-            Timer.clear(timerID);
-          }
-          
-          // Start the countdown again from 0
-          let timer30s = Timer.set(30000, false, function() {
-            checkMotionSinceDoorEvent();
-          });
-          activeTimers.push(timer30s);
+        // Reset flags to handle all logic from scratch
+        countdownStarted = false; 
+        motionDetectedSinceLastDoorEvent = false;
+  
+        // Clear previous timers and set new ones
+        while (activeTimers.length > 0) {
+          let timerID = activeTimers.pop();
+          Timer.clear(timerID);
         }
+  
+        // Reinitialize sensor activity and motion detection logic
+        for (let macAddress in CONFIG.motionSensors) {
+          CONFIG.motionSensors[macAddress].lastActivity = 0;
+        }
+  
+        // Start the countdown logic like the first time
+        countdownStarted = true;
+        debugLog("⏱ بدء العد التنازلي بعد إغلاق الباب");
+  
+        // Set new timers to check for motion at 30s and 60s intervals
+        let timer30s = Timer.set(30000, false, function() {
+          checkMotionSinceDoorEvent();
+        });
+        let timer60s = Timer.set(60000, false, function() {
+          checkMotionSinceDoorEvent();
+        });
+        activeTimers.push(timer30s);
+        activeTimers.push(timer60s);
+  
+        // Add a final check after 1 minute
+        Timer.set(60000, false, function() {
+          checkMotionSinceDoorEvent();
+        });
       }
     }
   }
-  
-  
+    
   // Functions for decoding and unpacking the service data from Shelly BLU devices
   function getByteSize(type) {
     if (type === uint8 || type === int8) return 1;
