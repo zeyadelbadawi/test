@@ -172,56 +172,73 @@ function clearActiveTimers() {
 }
 
 // معالجة حساس الباب عند اكتشاف فتح أو إغلاق
+// Modified handleDoorEvent function to reset flags and timers for every open/close
 function handleDoorEvent(isOpen) {
-    // تحقق إذا تغيرت حالة الباب
-    if (isOpen !== lastDoorState) {
-        lastDoorState = isOpen;
-        doorEventTime = getCurrentTimeMs();
+  // Debug log to check the state of the door event
+  debugLog("handleDoorEvent triggered with door state: " + isOpen);
+  
+  // Check if door state has changed (open/close)
+  if (isOpen !== lastDoorState) {
+    lastDoorState = isOpen;  // Update the last door state
+    doorEventTime = getCurrentTimeMs();  // Update the time of the event
 
-        if (isOpen) {
-            // الباب تم فتحه
-            doorOpened = true;
-            debugLog("🚪 تم فتح الباب");
+    // Case when the door is opened
+    if (isOpen) {
+      doorOpened = true;
+      debugLog("🚪 Door opened");
 
-            motionDetectedSinceLastDoorEvent = false;
-            countdownStarted = false;
-            clearActiveTimers();
-        } else {
-            // الباب تم إغلاقه
-            doorOpened = false;
-            debugLog("🚪 تم إغلاق الباب");
+      // Reset flags and timers when door opens
+      motionDetectedSinceLastDoorEvent = false;
+      countdownStarted = false;  // Ensure countdown starts fresh every time
+      clearActiveTimers();  // Clear any active timers from the previous event
+    } 
+    // Case when the door is closed
+    else {
+      doorOpened = false;
+      debugLog("🚪 Door closed");
 
-            // بدء العد التنازلي عند إغلاق الباب
-            countdownStarted = true;
-            motionDetectedSinceLastDoorEvent = false;
-            debugLog("⏱ بدء العد التنازلي: " + CONFIG.inactivityTimeout + " دقيقة لإيقاف الريليه إذا لم يتم اكتشاف حركة");
+      // Start countdown when door is closed
+      countdownStarted = true;
+      motionDetectedSinceLastDoorEvent = false;  // Reset motion flag
 
+      debugLog("⏱ Countdown started: " + CONFIG.inactivityTimeout + " minutes to turn off relay if no motion detected");
 
-            // مسح أي مؤقتات سابقة أولاً
-            clearActiveTimers();
+      // Clear any previous active timers before adding new ones
+      clearActiveTimers();
 
+      // Add new timers for periodic checks after door closes
+      let timer30s = Timer.set(30000, false, function() {
+        debugLog("Checking motion after 30 seconds of door closure");
+        checkMotionSinceDoorEvent();
+      });
 
-            // إضافة مؤقتات جديدة
-            let timer30s = Timer.set(30000, false, function () {
-                debugLog("تنفيذ فحص بعد 30 ثانية من إغلاق الباب");
-                checkMotionSinceDoorEvent();
-            });
+      let timer60s = Timer.set(60000, false, function() {
+        debugLog("Checking motion after 60 seconds of door closure");
+        checkMotionSinceDoorEvent();
+      });
 
-            let timer60s = Timer.set(60000, false, function () {
-                debugLog("تنفيذ فحص بعد 60 ثانية من إغلاق الباب");
-                checkMotionSinceDoorEvent();
-            });
+      // Store the timers in activeTimers array
+      activeTimers.push(timer30s);
+      activeTimers.push(timer60s);
 
-            activeTimers.push(timer30s);
-            activeTimers.push(timer60s);
-
-            // إضافة فحص فوري بعد 30 ثانية ثم مرة أخرى بعد دقيقة كاملة
-
-            Timer.set(60000, false, function () {
-                checkMotionSinceDoorEvent();
-            });
-        }
+      // Add a final check at 60 seconds
+      Timer.set(60000, false, function() {
+        checkMotionSinceDoorEvent();
+      });
     }
+  } else {
+    debugLog("ℹ No state change detected for door event, skipping...");
+  }
+}
+
+// Function to clear any active timers
+function clearActiveTimers() {
+  // Clear all active timers
+  while (activeTimers.length > 0) {
+    let timerID = activeTimers.pop();
+    Timer.clear(timerID);
+    debugLog("Cleared an active timer");
+  }
 }
 
 // Functions for decoding and unpacking the service data from Shelly BLU devices
