@@ -1,10 +1,9 @@
-
 /******************* ENERGY SAVER CONFIG *******************/
 let CONFIG = {
   // When set to true, debug messages will be logged to the console
   debug: true,
 
-  // When set to true the scan will be active, otherwise it will be passive. 
+  // When set to true the scan will be active, otherwise it will be passive.
   active: true,
 
   // Period of inactivity (in minutes) before turning off the relay
@@ -17,10 +16,10 @@ inactivityTimeout: 1,  // 5 minutesToMs()
     "99:88:99:88:99:88": { name: "حساس 3", lastActivity: 0 },
     // أضف المزيد من الحساسات حسب الحاجة
   },
-  
+ 
   // عنوان MAC لحساس الباب
   doorSensor: "0c:ef:f6:e4:fb:f6",
-  
+ 
   // كم عدد الحساسات التي يلزم وجودها نشطة لإبقاء الريليه في وضع التشغيل
   // إذا كان عدد الحساس��ت النشطة أقل من هذا الرقم، سيتم إيقاف الريليه
   // ضع 1 إذا كنت تريد إيقاف الريليه عندما تكون جميع الحساسات غير نشطة
@@ -98,24 +97,24 @@ function checkMotionSinceDoorEvent() {
     if (!countdownStarted) {
       return;  // Countdown hasn't started yet
     }
-  
+ 
     // If motion has been detected since the last door event, reset the countdown and keep the relay ON
     if (motionDetectedSinceLastDoorEvent) {
       debugLog("✅ Motion detected after door event. Relay stays ON.");
-      
+     
       // Reset flags and clear active timers for a fresh start
       resetTimers();
       return;
     }
-  
+ 
     let currentTime = getCurrentTimeMs();
     let timeElapsed = currentTime - doorEventTime;
     let inactivityThreshold = minutesToMs(CONFIG.inactivityTimeout);
-  
+ 
     if (timeElapsed >= inactivityThreshold && isRelayOn) {
       // No motion detected after inactivity timeout, turn off the relay
       turnOffRelay();
-      
+     
       // Reset flags and clear active timers
       resetTimers();
     } else if (isRelayOn) {
@@ -123,14 +122,14 @@ function checkMotionSinceDoorEvent() {
       debugLog("⏳ " + minutesRemaining + " minutes remaining before turning off relay.");
     }
   }
-  
+
 
 // تحديث وقت آخر نشاط لحساس معين عند اكتشاف حركة فعلية
 function updateSensorActivity(macAddress) {
     if (CONFIG.motionSensors[macAddress]) {
       CONFIG.motionSensors[macAddress].lastActivity = getCurrentTimeMs();
       debugLog("🔄 Motion detected by sensor " + CONFIG.motionSensors[macAddress].name);
-  
+ 
       if (countdownStarted) {
         motionDetectedSinceLastDoorEvent = true;
         debugLog("✅ Motion detected, resetting countdown.");
@@ -138,7 +137,7 @@ function updateSensorActivity(macAddress) {
       }
     }
   }
-  
+ 
 
 // تشغيل الريليه
 function turnOnRelay() {
@@ -151,7 +150,7 @@ function turnOnRelay() {
 function turnOffRelay() {
   Shelly.call("Switch.Set", { id: 0, on: false });
   isRelayOn = false;
-  debugLog("❌ تم إيقاف تشغيل الريليه بسبب عدم وجود حركة لمدة " + 
+  debugLog("❌ تم إيقاف تشغيل الريليه بسبب عدم وجود حركة لمدة " +
           CONFIG.inactivityTimeout + " دقيقة بعد فتح/إغلاق الباب");
 }
 
@@ -160,7 +159,7 @@ function handleDoorEvent(isOpen) {
     if (isOpen !== lastDoorState) {
       lastDoorState = isOpen;
       doorEventTime = getCurrentTimeMs();
-      
+     
       if (isOpen) {
         // Door opened
         doorOpened = true;
@@ -169,65 +168,55 @@ function handleDoorEvent(isOpen) {
         // Door closed
         doorOpened = false;
         debugLog("🚪 Door closed");
-        
+       
         if (!isRelayOn) {
-          // If the relay is OFF, switch it ON and then start the countdown and motion detection
+          // If the relay is OFF, switch it ON
           turnOnRelay();
-          startCountdownAndMonitorMotion();  // Start countdown and motion detection after turning ON the relay
         } else {
-          // If the relay is ON, just start the countdown and monitor motion
+          // If the relay is ON, start the countdown and motion detection process
           startCountdownAndMonitorMotion();
         }
       }
     }
   }
-  
 
-  
-function startCountdownAndMonitorMotion() {
-    if (!isRelayOn) {
-      // If the relay is OFF, we should not start the countdown
-      debugLog("❌ Relay is OFF, not starting countdown and motion detection.");
-      return;  // Exit if the relay is OFF
-    }
-  
+
+  function startCountdownAndMonitorMotion() {
     countdownStarted = true;
     motionDetectedSinceLastDoorEvent = false;
-    
+   
     // Set the countdown timer
     let inactivityThreshold = minutesToMs(CONFIG.inactivityTimeout);
-    
-    // Start periodic checks every 30 seconds and 60 seconds
+   
     let timer30s = Timer.set(30000, false, function() {
       debugLog("⏰ Check after 30 seconds of door closure");
       checkMotionSinceDoorEvent();
     });
-  
+ 
     let timer60s = Timer.set(60000, false, function() {
       debugLog("⏰ Check after 60 seconds of door closure");
       checkMotionSinceDoorEvent();
     });
-  
+ 
     activeTimers.push(timer30s);
     activeTimers.push(timer60s);
-    
+   
     debugLog("⏱ Countdown started. Awaiting motion detection.");
   }
 
-  
   function resetTimers() {
     countdownStarted = false;
     motionDetectedSinceLastDoorEvent = false;
-    
+   
     // Clear any active timers
     while (activeTimers.length > 0) {
       let timerID = activeTimers.pop();
       Timer.clear(timerID);
       debugLog("✅ Timers cleared.");
     }
-  }
+}
 
-  
+ 
 // Functions for decoding and unpacking the service data from Shelly BLU devices
 function getByteSize(type) {
   if (type === uint8 || type === int8) return 1;
@@ -320,13 +309,13 @@ const BTHomeDecoder = {
 // معالجة أحداث BLE ومراقبة حساسات الحركة والباب
 function processEventData(data) {
   const macAddress = data.address.toLowerCase();
-  
+ 
   // حساس الباب
   if (macAddress === CONFIG.doorSensor) {
     // إذا كان الباب يرسل حالة window، نستخدمها
     if (typeof data.window !== 'undefined') {
       handleDoorEvent(data.window === 1);
-    } 
+    }
     // إذا كان الباب يرسل حالة motion، نستخدمها
     else if (typeof data.motion !== 'undefined') {
       handleDoorEvent(data.motion === 1);
@@ -334,14 +323,14 @@ function processEventData(data) {
     // نستخدم button إذا كان موجودًا
     else if (typeof data.button !== 'undefined') {
       handleDoorEvent(data.button === 1);
-    } 
+    }
     // لا يوجد بيانات محددة، نستخدم معلومات القاعدة
     else {
       debugLog("ℹ تم اكتشاف حساس الباب ولكن لا توجد معلومات حالة واضحة");
     }
     return;
   }
-  
+ 
   // حساسات الحركة
   if (typeof CONFIG.motionSensors[macAddress] !== 'undefined') {
     // إذا كان الحساس يرسل بيانات حركة
@@ -350,11 +339,11 @@ function processEventData(data) {
         debugLog("🔄 تم اكتشاف حركة فعلية من حساس " + CONFIG.motionSensors[macAddress].name);
         updateSensorActivity(macAddress);
       } else {
-        debugLog("📡 تم اكتشاف حساس: " + CONFIG.motionSensors[macAddress].name + 
+        debugLog("📡 تم اكتشاف حساس: " + CONFIG.motionSensors[macAddress].name +
                 " (" + macAddress + ") ب��ون حركة");
       }
     } else {
-      debugLog("📡 تم اكتشاف حساس: " + CONFIG.motionSensors[macAddress].name + 
+      debugLog("📡 تم اكتشاف حساس: " + CONFIG.motionSensors[macAddress].name +
                " (" + macAddress + ") بدون بيانات حركة");
     }
   }
@@ -367,54 +356,54 @@ function BLEScanCallback(event, result) {
   }
 
   // Process Shelly BLU BTHome service data
-  if (typeof result.service_data !== 'undefined' && 
+  if (typeof result.service_data !== 'undefined' &&
       typeof result.service_data[BTHOME_SVC_ID_STR] !== 'undefined') {
-    
+   
     let data = BTHomeDecoder.unpack(result.service_data[BTHOME_SVC_ID_STR]);
-    
+   
     if (data === null || data.encryption) {
       return;
     }
-    
+   
     // Skip duplicate packets
     if (lastPacketId === data.pid) {
       return;
     }
-    
+   
     lastPacketId = data.pid;
-    
+   
     // Add address and RSSI to data
     data.address = result.addr;
     data.rssi = result.rssi;
-    
+   
     // Process the data for our sensors
     processEventData(data);
     return;
   }
-  
+ 
   // Process regular BLE advertisements
   const macAddress = result.addr.toLowerCase();
-  
+ 
   // حساس الباب
   if (macAddress === CONFIG.doorSensor) {
     debugLog("📡 حساس الباب: MAC=" + CONFIG.doorSensor + " RSSI=" + result.rssi);
-    
+   
     // إذا لم يكن هناك بيانات BTHome، نعتبر أن اكتشاف الإعلان كنشاط
     // تبديل حالة الباب - هذا سيكتشف الفتح والإغلاق
     doorOpened = !doorOpened;
-    
+   
     if (doorOpened) {
       debugLog("🚪 تم اكتشاف نشاط في حساس الباب - نعتبره فتح الباب");
       doorEventTime = getCurrentTimeMs();
     } else {
       debugLog("🚪 تم اكتشاف نشاط جديد - نعتبره إغلاق الباب");
       doorEventTime = getCurrentTimeMs();
-      
+     
       // بدء العد التنازلي عند إغلاق الباب
       countdownStarted = true;
       motionDetectedSinceLastDoorEvent = false;
       debugLog("⏱ بدء العد التنازلي: " + CONFIG.inactivityTimeout + " دقيقة لإيقاف الريليه إذا لم يتم اكتشاف حركة");
-      
+     
 // مسح أي مؤقتات سابقة أولاً
 while (activeTimers.length > 0) {
   let timerID = activeTimers.pop();
@@ -435,7 +424,7 @@ let timer60s = Timer.set(60000, false, function() {
 
 activeTimers.push(timer30s);
 activeTimers.push(timer60s);
-      
+     
       // إضافة فحص فوري بعد 30 ثانية ثم مرة أخرى بعد دقيقة كاملة
 
 
@@ -453,28 +442,28 @@ function setupPeriodicCheck() {
   if (timeoutTimer !== null) {
     Timer.clear(timeoutTimer);
   }
-  
+ 
   // إنشاء مؤقت للفحص الدوري كل دقيقة
   timeoutTimer = Timer.set(60000, true, function() {
     // في كل دقيقة، نتحقق من نشاط الحركة منذ آخر حدث باب
     checkMotionSinceDoorEvent();
   });
-  
+ 
   debugLog("⏱ تم إنشاء فحص دوري للحساسات كل دقيقة");
 }
 
 // تهيئة النظام
 function init() {
   debugLog("🚀 بدء تشغيل نظام توفير الطاقة مع دعم حساسات شيلي BTHome");
-  
+ 
   // تحقق من إعدادات BLE
   let BLEConfig = Shelly.getComponentConfig("ble");
-  
+ 
   if (!BLEConfig.enable) {
     debugLog("❌ البلوتوث غير مفعل. ير��ى تفعيله من الإعدادات");
     return;
   }
-  
+ 
   // بدء مسح BLE إذا لم يكن قيد التشغيل بالفعل
   if (!BLE.Scanner.isRunning()) {
     BLE.Scanner.Start({
@@ -485,14 +474,14 @@ function init() {
   } else {
     debugLog("ℹ ماسح BLE قيد التشغيل بالفعل");
   }
-  
+ 
   // إعداد الفحص الدوري
   setupPeriodicCheck();
-  
+ 
   // الاشتراك في أحداث BLE
   BLE.Scanner.Subscribe(BLEScanCallback);
-  
-  debugLog("✅ تم تهيئة النظام بنجاح | " + Object.keys(CONFIG.motionSensors).length + 
+ 
+  debugLog("✅ تم تهيئة النظام بنجاح | " + Object.keys(CONFIG.motionSensors).length +
           " حساسات | مدة عدم النشاط: " + CONFIG.inactivityTimeout + " دقيقة");
 }
 
