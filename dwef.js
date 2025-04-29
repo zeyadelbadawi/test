@@ -173,61 +173,66 @@ function clearActiveTimers() {
 
 // معالجة حساس الباب عند اكتشاف فتح أو إغلاق
 // Modified handleDoorEvent function to reset flags and timers for every open/close
+// Modified handleDoorEvent function to handle door state properly
 function handleDoorEvent(isOpen) {
-  // Debug log to check the state of the door event
-  debugLog("handleDoorEvent triggered with door state: " + isOpen);
-  
-  // Check if door state has changed (open/close)
-  if (isOpen !== lastDoorState) {
-    lastDoorState = isOpen;  // Update the last door state
-    doorEventTime = getCurrentTimeMs();  // Update the time of the event
+  try {
+    // Ensure proper door state handling
+    debugLog("handleDoorEvent triggered with door state: " + isOpen);
 
-    // Case when the door is opened
-    if (isOpen) {
-      doorOpened = true;
-      debugLog("🚪 Door opened");
+    // Check if door state has changed (open/close)
+    if (isOpen !== lastDoorState) {
+      lastDoorState = isOpen;  // Update the last door state
+      doorEventTime = getCurrentTimeMs();  // Update the time of the event
 
-      // Reset flags and timers when door opens
-      motionDetectedSinceLastDoorEvent = false;
-      countdownStarted = false;  // Ensure countdown starts fresh every time
-      clearActiveTimers();  // Clear any active timers from the previous event
-    } 
-    // Case when the door is closed
-    else {
-      doorOpened = false;
-      debugLog("🚪 Door closed");
+      // Case when the door is opened
+      if (isOpen) {
+        doorOpened = true;
+        debugLog("🚪 Door opened");
 
-      // Start countdown when door is closed
-      countdownStarted = true;
-      motionDetectedSinceLastDoorEvent = false;  // Reset motion flag
+        // Reset flags and timers when door opens
+        motionDetectedSinceLastDoorEvent = false;
+        countdownStarted = false;  // Ensure countdown starts fresh every time
+        clearActiveTimers();  // Clear any active timers from the previous event
+      } 
+      // Case when the door is closed
+      else {
+        doorOpened = false;
+        debugLog("🚪 Door closed");
 
-      debugLog("⏱ Countdown started: " + CONFIG.inactivityTimeout + " minutes to turn off relay if no motion detected");
+        // Start countdown when door is closed
+        countdownStarted = true;
+        motionDetectedSinceLastDoorEvent = false;  // Reset motion flag
 
-      // Clear any previous active timers before adding new ones
-      clearActiveTimers();
+        debugLog("⏱ Countdown started: " + CONFIG.inactivityTimeout + " minutes to turn off relay if no motion detected");
 
-      // Add new timers for periodic checks after door closes
-      let timer30s = Timer.set(30000, false, function() {
-        debugLog("Checking motion after 30 seconds of door closure");
-        checkMotionSinceDoorEvent();
-      });
+        // Clear any previous active timers before adding new ones
+        clearActiveTimers();
 
-      let timer60s = Timer.set(60000, false, function() {
-        debugLog("Checking motion after 60 seconds of door closure");
-        checkMotionSinceDoorEvent();
-      });
+        // Add new timers for periodic checks after door closes
+        let timer30s = Timer.set(30000, false, function() {
+          debugLog("Checking motion after 30 seconds of door closure");
+          checkMotionSinceDoorEvent();
+        });
 
-      // Store the timers in activeTimers array
-      activeTimers.push(timer30s);
-      activeTimers.push(timer60s);
+        let timer60s = Timer.set(60000, false, function() {
+          debugLog("Checking motion after 60 seconds of door closure");
+          checkMotionSinceDoorEvent();
+        });
 
-      // Add a final check at 60 seconds
-      Timer.set(60000, false, function() {
-        checkMotionSinceDoorEvent();
-      });
+        // Store the timers in activeTimers array
+        activeTimers.push(timer30s);
+        activeTimers.push(timer60s);
+
+        // Add a final check at 60 seconds
+        Timer.set(60000, false, function() {
+          checkMotionSinceDoorEvent();
+        });
+      }
+    } else {
+      debugLog("ℹ No state change detected for door event, skipping...");
     }
-  } else {
-    debugLog("ℹ No state change detected for door event, skipping...");
+  } catch (e) {
+    debugLog("Error in handleDoorEvent: " + e.message);
   }
 }
 
